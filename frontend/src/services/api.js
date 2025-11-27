@@ -11,7 +11,7 @@ const api = axios.create({
 })
 
 // Função para ler dados da planilha
-export const getSheetData = async (sheetName = 'Ações', range = '') => {
+export const getSheetData = async (sheetName = 'Ações', range = 'A:Z') => {
   try {
     const params = { sheetName }
     if (range) params.range = range
@@ -25,7 +25,7 @@ export const getSheetData = async (sheetName = 'Ações', range = '') => {
 }
 
 // Função para adicionar dados na planilha
-export const appendSheetData = async (values, sheetName = 'Sheet1') => {
+export const appendSheetData = async (values, sheetName = 'Ações') => {
   try {
     const response = await api.post('/sheets/append', {
       sheetName,

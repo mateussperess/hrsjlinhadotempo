@@ -148,13 +148,12 @@ export async function getSheetData(req, res) {
       });
     }
 
-    const { sheetName, range } = req.query;
+    const { sheetName = 'Projetos', range } = req.query;
 
     const auth = await authenticateGoogle();
     const sheets = google.sheets({ version: 'v4', auth });
 
     // Se não especificar range, ler toda a aba (A:Z cobre todas as colunas comuns)
-    // Você pode aumentar para A:ZZ se precisar de mais colunas
     const readRange = range ? `${sheetName}!${range}` : `${sheetName}!A:Z`;
 
     const response = await sheets.spreadsheets.values.get({
@@ -172,12 +171,34 @@ export async function getSheetData(req, res) {
       });
     }
 
-    // Transformar em array de objetos usando a primeira linha como header
-    const headers = rows[0];
-    const data = rows.slice(1).map(row => {
+    // O header está na linha 3 (índice 2)
+    const headerIndex = 2;
+    
+    if (rows.length <= headerIndex) {
+      return res.json({
+        success: true,
+        message: 'Header não encontrado',
+        data: []
+      });
+    }
+
+    const headers = rows[headerIndex];
+    
+    // Se não encontrar headers válidos, retornar erro
+    if (!headers || !headers.some(h => h && h.toString().trim() !== '')) {
+      return res.json({
+        success: true,
+        message: 'Nenhum header encontrado',
+        data: []
+      });
+    }
+
+    // Pegar apenas dados após o header (a partir da linha 4, índice 3)
+    const data = rows.slice(headerIndex + 1).map(row => {
       const obj = {};
       headers.forEach((header, index) => {
-        obj[header] = row[index] || '';
+        // Pegar o valor da coluna ou vazio
+        obj[header] = row && row[index] ? row[index] : '';
       });
       return obj;
     });

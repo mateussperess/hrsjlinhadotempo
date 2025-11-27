@@ -1,39 +1,5 @@
 # 🔐 Guia de Autenticação - Google Sheets API
 
-## ⚠️ PRÉ-REQUISITO IMPORTANTE
-
-Antes de começar, você **PRECISA** ter as credenciais OAuth 2.0 corretas configuradas!
-
-**Consulte:** [`GOOGLE_SETUP.md`](./GOOGLE_SETUP.md) para instruções completas.
-
-### ⚠️ Verificação Crítica:
-
-```bash
-cat backend/credentials.json | jq .installed.client_secret
-```
-
-**O `client_secret` deve:**
-- ✅ NÃO começar com `AIza...` (isso é uma API Key, não é válido)
-- ✅ Ser uma string com caracteres aleatórios
-- ✅ Corresponder exatamente ao valor no Google Cloud Console
-
-### ✅ Se estiver com `AIza...`:
-
-1. Vá para: https://console.cloud.google.com/
-2. Projeto: **"linha-do-tempo-479418"**
-3. APIs e Serviços → Credenciais
-4. Gere um novo **Client Secret** OAuth 2.0 (não API Key!)
-5. Atualize o `credentials.json`
-
----
-
-## 📋 Configuração Realizada
-
-✅ **Credentials.json** atualizado com:
-- `redirect_uri`: `http://localhost:3001/api/auth/callback` (backend)
-- Client ID e Client Secret configurados
-- Escopo: `https://www.googleapis.com/auth/spreadsheets`
-
 ## 🚀 Fluxo de Autenticação
 
 ### ✨ Passo 1: Abrir Interface
