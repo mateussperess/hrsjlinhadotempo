@@ -42,12 +42,11 @@ function saveToken(token) {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    
+
     fs.writeFileSync(TOKEN_PATH, JSON.stringify(token, null, 2));
     console.log('✅ Token salvo em:', TOKEN_PATH);
   } catch (error) {
     console.error('❌ Erro ao salvar token:', error.message);
-    // Não lançar erro aqui, pois o token pode estar em memória
   }
 }
 
@@ -94,8 +93,10 @@ export function getAuthUrl(req, res) {
     const authUrl = auth.generateAuthUrl({
       access_type: 'offline',
       scope: ['https://www.googleapis.com/auth/spreadsheets'],
+      prompt: 'consent' // Força a tela de consentimento para garantir refresh_token
     });
 
+    console.log('🔗 URL de autenticação gerada com prompt=consent');
     res.json({ authUrl });
   } catch (error) {
     console.error('Erro ao gerar URL de autenticação:', error);
@@ -127,7 +128,15 @@ export async function handleAuthCallback(req, res) {
       redirect_uris[0]
     );
 
+    console.log('🔄 Obtendo token com código de autenticação...');
     const { tokens } = await auth.getToken(code);
+    
+    console.log('📋 Token obtido:', {
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token,
+      expiresIn: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : 'N/A'
+    });
+    
     auth.setCredentials(tokens);
 
     // Salvar token para reutilização
@@ -137,9 +146,42 @@ export async function handleAuthCallback(req, res) {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     res.redirect(`${frontendUrl}?authenticated=true`);
   } catch (error) {
-    console.error('Erro ao obter token:', error);
+    console.error('❌ Erro ao obter token:', error.message);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     res.redirect(`${frontendUrl}?error=${encodeURIComponent(error.message)}`);
+  }
+}
+
+/**
+ * Verifica o status da autenticação
+ */
+export function checkAuthStatus(req, res) {
+  try {
+    if (!fs.existsSync(TOKEN_PATH)) {
+      return res.json({
+        authenticated: false,
+        message: 'Nenhum token encontrado'
+      });
+    }
+
+    const tokenData = fs.readFileSync(TOKEN_PATH, 'utf-8');
+    const token = JSON.parse(tokenData);
+
+    // Verificar se o token expirou
+    const isExpired = token.expiry_date && token.expiry_date <= Date.now();
+
+    res.json({
+      authenticated: !isExpired && !!token.access_token,
+      message: isExpired ? 'Token expirado' : 'Token válido',
+      tokenExpiresAt: token.expiry_date ? new Date(token.expiry_date).toISOString() : 'N/A'
+    });
+  } catch (error) {
+    console.error('Erro ao verificar status de autenticação:', error.message);
+    res.json({
+      authenticated: false,
+      message: 'Erro ao verificar autenticação',
+      error: error.message
+    });
   }
 }
 

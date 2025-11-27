@@ -10,6 +10,16 @@ const api = axios.create({
   }
 })
 
+// Verificar se está autenticado no backend
+export const checkAuthStatus = async () => {
+  try {
+    const response = await api.get('/auth/status')
+    return response.data.authenticated === true
+  } catch (error) {
+    return false
+  }
+}
+
 // Função para ler dados da planilha
 export const getSheetData = async (sheetName = 'Ações', range = 'A:Z') => {
   try {
@@ -19,7 +29,7 @@ export const getSheetData = async (sheetName = 'Ações', range = 'A:Z') => {
     const response = await api.get('/sheets/read', { params })
     return response.data
   } catch (error) {
-    console.error('Erro ao ler planilha:', error)
+    console.error('Erro ao ler planilha:', error.message)
     throw error
   }
 }
@@ -33,7 +43,7 @@ export const appendSheetData = async (values, sheetName = 'Ações') => {
     })
     return response.data
   } catch (error) {
-    console.error('Erro ao adicionar dados na planilha:', error)
+    console.error('Erro ao adicionar dados na planilha:', error.message)
     throw error
   }
 }

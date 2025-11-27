@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import api, { getSheetData } from './services/api'
+import api, { getSheetData, checkAuthStatus } from './services/api'
 import './App.css'
 
 function App() {
@@ -9,15 +9,16 @@ function App() {
   const [sheetData, setSheetData] = useState(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authLoading, setAuthLoading] = useState(false)
+  const [checkingAuth, setCheckingAuth] = useState(true)
 
   useEffect(() => {
     fetchMessage()
+    verifyAuthentication()
+    
     // Verificar se há parâmetros de autenticação na URL
     const params = new URLSearchParams(window.location.search)
     if (params.has('authenticated') && params.get('authenticated') === 'true') {
       setIsAuthenticated(true)
-      // Fazer uma requisição de teste para validar autenticação
-      testSheetAccess()
       // Limpar a URL
       window.history.replaceState({}, document.title, window.location.pathname)
     } else if (params.has('error')) {
@@ -26,6 +27,17 @@ function App() {
       window.history.replaceState({}, document.title, window.location.pathname)
     }
   }, [])
+
+  const verifyAuthentication = async () => {
+    try {
+      const isAuth = await checkAuthStatus()
+      setIsAuthenticated(isAuth)
+    } catch (err) {
+      setIsAuthenticated(false)
+    } finally {
+      setCheckingAuth(false)
+    }
+  }
 
   const fetchMessage = async () => {
     setLoading(true)
@@ -51,17 +63,6 @@ function App() {
       console.error('❌ Erro ao obter URL de autenticação:', err)
       alert('Erro ao obter URL de autenticação')
       setAuthLoading(false)
-    }
-  }
-
-  const testSheetAccess = async () => {
-    try {
-      console.log('🧪 Testando acesso à planilha...')
-      await getSheetData('Projetos')
-      console.log('✅ Acesso à planilha confirmado!')
-    } catch (err) {
-      console.error('❌ Falha na autenticação:', err)
-      setIsAuthenticated(false)
     }
   }
 
@@ -91,72 +92,82 @@ function App() {
       </header>
 
       <main>
-        <section className="card">
-          <h2>Status da Conexão</h2>
-          
-          {loading && <p className="loading">Carregando...</p>}
-          {error && <p className="error">{error}</p>}
-          {message && <p className="success">✓ {message}</p>}
+        {checkingAuth && (
+          <section className="card">
+            <p className="loading">⏳ Verificando autenticação...</p>
+          </section>
+        )}
 
-          <button onClick={fetchMessage} disabled={loading}>
-            {loading ? 'Conectando...' : 'Testar Conexão'}
-          </button>
-        </section>
+        {!checkingAuth && (
+          <>
+            <section className="card">
+              <h2>Status da Conexão</h2>
+              
+              {loading && <p className="loading">Carregando...</p>}
+              {error && <p className="error">{error}</p>}
+              {message && <p className="success">✓ {message}</p>}
 
-        <section className="card">
-          <h2>🔐 Autenticação Google Sheets</h2>
-          {isAuthenticated ? (
-            <p className="success">✅ Autenticado com sucesso!</p>
-          ) : (
-            <>
-              <p style={{ marginBottom: '1rem' }}>
-                Clique no botão abaixo para autorizar o acesso à sua planilha:
-              </p>
-              <button 
-                onClick={handleAuthenticate} 
-                disabled={authLoading}
-                style={{ backgroundColor: '#4285F4' }}
-              >
-                {authLoading ? '⏳ Redirecionando...' : '🔑 Autenticar com Google'}
+              <button onClick={fetchMessage} disabled={loading}>
+                {loading ? 'Conectando...' : 'Testar Conexão'}
               </button>
-            </>
-          )}
-        </section>
+            </section>
 
-        <section className="card">
-          <h2>📊 Leitura de Planilha</h2>
-          <button onClick={fetchSheetData} disabled={!isAuthenticated}>
-            📊 Ler Dados da Planilha
-          </button>
-          
-          {!isAuthenticated && (
-            <p style={{ marginTop: '1rem', color: '#f59e0b', fontSize: '0.9rem' }}>
-              ℹ️ Autentique-se primeiro para usar esta função
-            </p>
-          )}
-          
-          {sheetData && (
-            <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
-              <p><strong>Status:</strong> {sheetData.message}</p>
-              <p><strong>Total de linhas:</strong> {sheetData.rowCount}</p>
-              <p style={{ fontSize: '0.9rem', color: '#666' }}>
-                💡 Abra o console do navegador (F12) para ver os dados completos!
-              </p>
-            </div>
-          )}
-        </section>
+            <section className="card">
+              <h2>🔐 Autenticação Google Sheets</h2>
+              {isAuthenticated ? (
+                <p className="success">✅ Autenticado com sucesso!</p>
+              ) : (
+                <>
+                  <p style={{ marginBottom: '1rem' }}>
+                    Clique no botão abaixo para autorizar o acesso à sua planilha:
+                  </p>
+                  <button 
+                    onClick={handleAuthenticate} 
+                    disabled={authLoading}
+                    style={{ backgroundColor: '#4285F4' }}
+                  >
+                    {authLoading ? '⏳ Redirecionando...' : '🔑 Autenticar com Google'}
+                  </button>
+                </>
+              )}
+            </section>
 
-        <section className="info">
-          <h3>Arquitetura do Projeto:</h3>
-          <ul>
-            <li>✓ Backend Express rodando na porta 3001</li>
-            <li>✓ Frontend React rodando na porta 3000</li>
-            <li>✓ API REST para comunicação</li>
-            <li>✓ CORS configurado</li>
-            <li>✓ Integração com Google Sheets</li>
-            <li>✓ Autenticação OAuth2</li>
-          </ul>
-        </section>
+            <section className="card">
+              <h2>📊 Leitura de Planilha</h2>
+              <button onClick={fetchSheetData} disabled={!isAuthenticated}>
+                📊 Ler Dados da Planilha
+              </button>
+              
+              {!isAuthenticated && (
+                <p style={{ marginTop: '1rem', color: '#f59e0b', fontSize: '0.9rem' }}>
+                  ℹ️ Autentique-se primeiro para usar esta função
+                </p>
+              )}
+              
+              {sheetData && (
+                <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
+                  <p><strong>Status:</strong> {sheetData.message}</p>
+                  <p><strong>Total de linhas:</strong> {sheetData.rowCount}</p>
+                  <p style={{ fontSize: '0.9rem', color: '#666' }}>
+                    💡 Abra o console do navegador (F12) para ver os dados completos!
+                  </p>
+                </div>
+              )}
+            </section>
+
+            <section className="info">
+              <h3>Arquitetura do Projeto:</h3>
+              <ul>
+                <li>✓ Backend Express rodando na porta 3001</li>
+                <li>✓ Frontend React rodando na porta 3000</li>
+                <li>✓ API REST para comunicação</li>
+                <li>✓ CORS configurado</li>
+                <li>✓ Integração com Google Sheets</li>
+                <li>✓ Autenticação OAuth2</li>
+              </ul>
+            </section>
+          </>
+        )}
       </main>
     </div>
   )
