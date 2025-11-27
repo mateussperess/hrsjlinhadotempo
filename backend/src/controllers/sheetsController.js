@@ -143,7 +143,9 @@ export async function handleAuthCallback(req, res) {
     saveToken(tokens);
 
     // Redirecionar de volta ao frontend com sucesso
+    // Usar a URL do request para determinar a origem correta
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    console.log('🔀 Redirecionando para:', frontendUrl);
     res.redirect(`${frontendUrl}?authenticated=true`);
   } catch (error) {
     console.error('❌ Erro ao obter token:', error.message);
