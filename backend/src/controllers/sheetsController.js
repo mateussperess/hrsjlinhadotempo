@@ -18,13 +18,16 @@ async function loadOrCreateToken(auth) {
       const tokenData = fs.readFileSync(TOKEN_PATH, 'utf-8');
       const token = JSON.parse(tokenData);
       auth.setCredentials(token);
+      console.log('✅ Token carregado do arquivo');
       return auth;
     }
     
+    console.log('⚠️ Token não encontrado, será necessário autenticar');
     // Se não houver token, retornar auth sem token (vai usar refresh token ou exigir autenticação)
     return auth;
   } catch (error) {
-    console.error('Erro ao carregar token:', error);
+    console.error('⚠️ Erro ao carregar token:', error.message);
+    // Se houver erro ao ler o token, continuar sem ele
     return auth;
   }
 }
@@ -34,10 +37,17 @@ async function loadOrCreateToken(auth) {
  */
 function saveToken(token) {
   try {
+    // Garantir que o diretório existe
+    const dir = path.dirname(TOKEN_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    
     fs.writeFileSync(TOKEN_PATH, JSON.stringify(token, null, 2));
     console.log('✅ Token salvo em:', TOKEN_PATH);
   } catch (error) {
-    console.error('Erro ao salvar token:', error);
+    console.error('❌ Erro ao salvar token:', error.message);
+    // Não lançar erro aqui, pois o token pode estar em memória
   }
 }
 
