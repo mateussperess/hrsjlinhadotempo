@@ -1,8 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import '../styles/Timeline.css'
 
 function Timeline({ categories }) {
   const [selectedCategory, setSelectedCategory] = useState('Todos')
+  const [currentMonth, setCurrentMonth] = useState('Todos')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const timelineRef = useRef(null)
 
   // Obter todos os projetos
   const allProjects = useMemo(() => {
@@ -20,20 +24,145 @@ function Timeline({ categories }) {
     return projects
   }, [categories])
 
-  // Filtrar projetos por categoria
+  // Função para parsear data no formato DD/MM/YYYY
+  const parseDate = (dateString) => {
+    if (!dateString) return null
+    const parts = dateString.split('/')
+    if (parts.length !== 3) return null
+    const [day, month, year] = parts.map(Number)
+    return new Date(year, month - 1, day)
+  }
+
+  // Nomes dos meses em português
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ]
+
+  // Filtrar e ordenar projetos
   const filteredProjects = useMemo(() => {
-    if (selectedCategory === 'Todos') {
-      return allProjects
+    let projects = selectedCategory === 'Todos' 
+      ? allProjects 
+      : allProjects.filter(project => project.category === selectedCategory)
+    
+    if (dateFrom || dateTo) {
+      projects = projects.filter(project => {
+        const projectDate = parseDate(project['DATA INÍCIO'])
+        if (!projectDate) return false
+        
+        if (dateFrom) {
+          // Input de data vem em formato YYYY-MM-DD
+          const [year, month, day] = dateFrom.split('-').map(Number)
+          const fromDate = new Date(year, month - 1, day)
+          if (projectDate < fromDate) return false
+        }
+        
+        if (dateTo) {
+          // Input de data vem em formato YYYY-MM-DD
+          const [year, month, day] = dateTo.split('-').map(Number)
+          const toDate = new Date(year, month - 1, day)
+          if (projectDate > toDate) return false
+        }
+        
+        return true
+      })
     }
-    return allProjects.filter(project => project.category === selectedCategory)
-  }, [allProjects, selectedCategory])
+    
+    projects.sort((a, b) => {
+      const dateA = parseDate(a['DATA INÍCIO'])
+      const dateB = parseDate(b['DATA INÍCIO'])
+      
+      if (!dateA && !dateB) return 0
+      if (!dateA) return 1
+      if (!dateB) return -1
+      
+      return dateA - dateB
+    })
+    
+    return projects
+  }, [allProjects, selectedCategory, dateFrom, dateTo])
+
+  const projectsByMonth = useMemo(() => {
+    if (selectedCategory !== 'Todos') {
+      return null
+    }
+
+    const grouped = {}
+    filteredProjects.forEach(project => {
+      const date = parseDate(project['DATA INÍCIO'])
+      if (!date) {
+        if (!grouped['sem-data']) grouped['sem-data'] = []
+        grouped['sem-data'].push(project)
+      } else {
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth()).padStart(2, '0')}`
+        if (!grouped[monthKey]) grouped[monthKey] = []
+        grouped[monthKey].push(project)
+      }
+    })
+    
+    return grouped
+  }, [filteredProjects, selectedCategory])
 
   const categoryNames = categories ? Object.keys(categories) : []
+
+  useEffect(() => {
+    const timeline = timelineRef.current
+    if (!timeline || selectedCategory !== 'Todos') return
+
+    const handleTimelineScroll = () => {
+      const timelineItems = timeline.querySelectorAll('[data-month]')
+      if (timelineItems.length === 0) return
+
+      const timelineRect = timeline.getBoundingClientRect()
+      const centerX = timelineRect.left + timelineRect.width / 2
+
+      let closestMonth = null
+      let closestDistance = Infinity
+
+      timelineItems.forEach(item => {
+        const itemRect = item.getBoundingClientRect()
+        const itemCenterX = itemRect.left + itemRect.width / 2
+        const distance = Math.abs(itemCenterX - centerX)
+
+        if (distance < closestDistance) {
+          closestDistance = distance
+          const monthKey = item.getAttribute('data-month')
+          if (monthKey === 'sem-data') {
+            closestMonth = '📋 Sem Data'
+          } else {
+            const [year, month] = monthKey.split('-')
+            const monthIndex = parseInt(month)
+            closestMonth = `${monthNames[monthIndex]} de ${year}`
+          }
+        }
+      })
+
+      if (closestMonth) {
+        setCurrentMonth(closestMonth)
+      }
+    }
+
+    timeline.addEventListener('scroll', handleTimelineScroll)
+    handleTimelineScroll() 
+
+    return () => timeline.removeEventListener('scroll', handleTimelineScroll)
+  }, [selectedCategory, monthNames])
+
+  useEffect(() => {
+    if (selectedCategory === 'Todos') {
+      setCurrentMonth('Todos')
+    }
+  }, [selectedCategory])
 
   return (
     <div className="timeline-container">
       <div className="timeline-header">
-        <h2>📅 Linha do Tempo de Projetos</h2>
+        <div className="header-top">
+          <h2>📅 Linha do Tempo de Projetos</h2>
+          <span className="project-count">
+            {filteredProjects.length} projeto{filteredProjects.length !== 1 ? 's' : ''}
+          </span>
+        </div>
         
         <div className="filter-section">
           <label htmlFor="category-select">Filtrar por Categoria:</label>
@@ -50,55 +179,103 @@ function Timeline({ categories }) {
               </option>
             ))}
           </select>
-          <span className="project-count">
-            {filteredProjects.length} projeto{filteredProjects.length !== 1 ? 's' : ''}
-          </span>
+
+          <div className="date-filters">
+            <div className="date-filter-group">
+              <label htmlFor="date-from">Data de:</label>
+              <input 
+                id="date-from"
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="date-input"
+              />
+            </div>
+
+            <div className="date-filter-group">
+              <label htmlFor="date-to">Data até:</label>
+              <input 
+                id="date-to"
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="date-input"
+              />
+            </div>
+
+            {(dateFrom || dateTo) && (
+              <button 
+                onClick={() => {
+                  setDateFrom('')
+                  setDateTo('')
+                }}
+                className="btn-clear-dates"
+              >
+                Limpar Datas
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="timeline">
+      {selectedCategory === 'Todos' && (
+        <div className="month-indicator-wrapper">
+          <div className="month-indicator">
+            {currentMonth}
+          </div>
+        </div>
+      )}
+
+      <div className="timeline" ref={timelineRef}>
         {filteredProjects.length === 0 ? (
           <div className="empty-state">
             <p>Nenhum projeto encontrado nesta categoria.</p>
           </div>
         ) : (
-          filteredProjects.map((project, index) => (
-            <div key={index} className="timeline-item">
-              <div className="timeline-marker"></div>
-              <div className="timeline-content">
-                <div className="project-header">
-                  <h3>{project.PROJETO || 'Projeto sem título'}</h3>
-                  <span className={`status-badge status-${project['STATUS ']?.toLowerCase().replace(/\s+/g, '-') || 'indefinido'}`}>
-                    {project['STATUS '] || 'Indefinido'}
-                  </span>
-                </div>
-                
-                <div className="project-details">
-                  {project.RESPONSÁVEL && (
-                    <p><strong>👤 Responsável:</strong> {project.RESPONSÁVEL}</p>
-                  )}
-                  {project['DATA INÍCIO'] && (
-                    <p><strong>📅 Início:</strong> {project['DATA INÍCIO']}</p>
-                  )}
-                  {project.INVESTIMENTO && (
-                    <p><strong>💰 Investimento:</strong> {project.INVESTIMENTO}</p>
-                  )}
-                  {project['ORIGEM DO \nINVESTIMENTO'] && (
-                    <p><strong>🏦 Origem:</strong> {project['ORIGEM DO \nINVESTIMENTO']}</p>
-                  )}
-                  {project['CRITÉRIO DE IMPORTÂNCIA'] && (
-                    <p><strong>⭐ Importância:</strong> {project['CRITÉRIO DE IMPORTÂNCIA']}</p>
-                  )}
-                </div>
+          filteredProjects.map((project, index) => {
+            const date = parseDate(project['DATA INÍCIO'])
+            const monthKey = date 
+              ? `${date.getFullYear()}-${String(date.getMonth()).padStart(2, '0')}`
+              : 'sem-data'
+            
+            return (
+              <div key={index} className="timeline-item" data-month={monthKey}>
+                <div className="timeline-marker"></div>
+                <div className="timeline-content">
+                  <div className="project-header">
+                    <h3>{project.PROJETO || 'Projeto sem título'}</h3>
+                    <span className={`status-badge status-${project['STATUS ']?.toLowerCase().replace(/\s+/g, '-') || 'indefinido'}`}>
+                      {project['STATUS '] || 'Indefinido'}
+                    </span>
+                  </div>
+                  
+                  <div className="project-details">
+                    {project.RESPONSÁVEL && (
+                      <p><strong>👤 Responsável:</strong> {project.RESPONSÁVEL}</p>
+                    )}
+                    {project['DATA INÍCIO'] && (
+                      <p><strong>📅 Início:</strong> {project['DATA INÍCIO']}</p>
+                    )}
+                    {project.INVESTIMENTO && (
+                      <p><strong>💰 Investimento:</strong> {project.INVESTIMENTO}</p>
+                    )}
+                    {project['ORIGEM DO \nINVESTIMENTO'] && (
+                      <p><strong>🏦 Origem:</strong> {project['ORIGEM DO \nINVESTIMENTO']}</p>
+                    )}
+                    {project['CRITÉRIO DE IMPORTÂNCIA'] && (
+                      <p><strong>⭐ Importância:</strong> {project['CRITÉRIO DE IMPORTÂNCIA']}</p>
+                    )}
+                  </div>
 
-                <div className="project-category">
-                  <span className={`category-badge category-${project.category.toLowerCase().replace(/\s+/g, '-')}`}>
-                    {project.category}
-                  </span>
+                  <div className="project-category">
+                    <span className={`category-badge category-${project.category.toLowerCase().replace(/\s+/g, '-')}`}>
+                      {project.category}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
     </div>

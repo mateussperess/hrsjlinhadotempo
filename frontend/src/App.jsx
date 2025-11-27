@@ -101,15 +101,8 @@ function App() {
                 disabled={dataLoading}
                 className="btn btn-primary"
               >
-                {dataLoading ? '⏳ Carregando...' : '🔄 Recarregar Dados'}
+                {dataLoading ? 'Carregando...' : 'Recarregar Dados'}
               </button>
-              {sheetData && (
-                <div className="data-info">
-                  <span className="info-badge">
-                    📊 {sheetData.rowCount} projetos
-                  </span>
-                </div>
-              )}
             </section>
 
             {/* Timeline */}
