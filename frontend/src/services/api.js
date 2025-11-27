@@ -10,4 +10,32 @@ const api = axios.create({
   }
 })
 
+// Função para ler dados da planilha
+export const getSheetData = async (sheetName = 'Ações', range = '') => {
+  try {
+    const params = { sheetName }
+    if (range) params.range = range
+    
+    const response = await api.get('/sheets/read', { params })
+    return response.data
+  } catch (error) {
+    console.error('Erro ao ler planilha:', error)
+    throw error
+  }
+}
+
+// Função para adicionar dados na planilha
+export const appendSheetData = async (values, sheetName = 'Sheet1') => {
+  try {
+    const response = await api.post('/sheets/append', {
+      sheetName,
+      values
+    })
+    return response.data
+  } catch (error) {
+    console.error('Erro ao adicionar dados na planilha:', error)
+    throw error
+  }
+}
+
 export default api
