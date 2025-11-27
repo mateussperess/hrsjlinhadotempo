@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import api, { getSheetData, checkAuthStatus } from './services/api'
+import Timeline from './components/Timeline'
+import Login from './pages/Login'
 import './App.css'
 
 function App() {
@@ -8,18 +10,16 @@ function App() {
   const [error, setError] = useState('')
   const [sheetData, setSheetData] = useState(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [authLoading, setAuthLoading] = useState(false)
   const [checkingAuth, setCheckingAuth] = useState(true)
+  const [dataLoading, setDataLoading] = useState(false)
 
   useEffect(() => {
-    fetchMessage()
     verifyAuthentication()
     
     // Verificar se há parâmetros de autenticação na URL
     const params = new URLSearchParams(window.location.search)
     if (params.has('authenticated') && params.get('authenticated') === 'true') {
       setIsAuthenticated(true)
-      // Limpar a URL
       window.history.replaceState({}, document.title, window.location.pathname)
     } else if (params.has('error')) {
       console.error('❌ Erro na autenticação:', params.get('error'))
@@ -32,6 +32,9 @@ function App() {
     try {
       const isAuth = await checkAuthStatus()
       setIsAuthenticated(isAuth)
+      if (isAuth) {
+        await autoLoadData()
+      }
     } catch (err) {
       setIsAuthenticated(false)
     } finally {
@@ -39,146 +42,120 @@ function App() {
     }
   }
 
-  const fetchMessage = async () => {
-    setLoading(true)
-    setError('')
+  const autoLoadData = async () => {
     try {
-      const response = await api.get('/hello')
-      setMessage(response.data.message)
+      setDataLoading(true)
+      const data = await getSheetData('Projetos')
+      setSheetData(data)
     } catch (err) {
-      setError('Erro ao conectar com o backend: ' + err.message)
-      console.error(err)
+      console.warn('Não foi possível carregar dados automaticamente')
     } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleAuthenticate = async () => {
-    try {
-      setAuthLoading(true)
-      const response = await api.get('/auth/url')
-      console.log('🔗 URL de autenticação:', response.data.authUrl)
-      window.location.href = response.data.authUrl
-    } catch (err) {
-      console.error('❌ Erro ao obter URL de autenticação:', err)
-      alert('Erro ao obter URL de autenticação')
-      setAuthLoading(false)
+      setDataLoading(false)
     }
   }
 
   const fetchSheetData = async () => {
     try {
-      console.log('📊 Iniciando leitura da planilha...')
+      setDataLoading(true)
       const data = await getSheetData('Projetos')
-      
-      console.log('✅ Dados da planilha recebidos:')
-      console.log('Headers:', data.headers)
-      console.log('Categorias:', data.categories)
-      
-      // Exibir cada categoria no console
-      Object.entries(data.categories).forEach(([categoryName, items]) => {
-        console.log(`\n📁 ${categoryName}:`, items)
-      })
-      
       setSheetData(data)
     } catch (err) {
       console.error('❌ Erro ao ler planilha:', err)
       alert('Erro ao ler planilha. Verifique se está autenticado.')
+    } finally {
+      setDataLoading(false)
     }
   }
 
   return (
-    <div className="container">
-      <header>
-        <h1>HRS Linha do Tempo</h1>
-        <p>Comunicação Frontend ↔ Backend</p>
-      </header>
+    <>
+      {/* Show Login Page if not authenticated */}
+      {!checkingAuth && !isAuthenticated && (
+        <Login />
+      )}
 
-      <main>
-        {checkingAuth && (
-          <section className="card">
-            <p className="loading">⏳ Verificando autenticação...</p>
-          </section>
-        )}
+      {/* Show App if authenticated */}
+      {!checkingAuth && isAuthenticated && (
+        <div className="app-container">
+          {/* Header Premium */}
+          <header className="premium-header">
+            <div className="header-content">
+              <div className="header-left">
+                <h1 className="main-title">📅 HRSJ Linha do Tempo</h1>
+                <p className="header-subtitle">Visualize e gerencie seus projetos estratégicos</p>
+              </div>
+              <div className="header-right">
+                <div className={`auth-badge authenticated`}>
+                  <span className="badge-dot"></span>
+                  <span className="badge-text">✓ Autenticado</span>
+                </div>
+              </div>
+            </div>
+          </header>
 
-        {!checkingAuth && (
-          <>
-            <section className="card">
-              <h2>Status da Conexão</h2>
-              
-              {loading && <p className="loading">Carregando...</p>}
-              {error && <p className="error">{error}</p>}
-              {message && <p className="success">✓ {message}</p>}
-
-              <button onClick={fetchMessage} disabled={loading}>
-                {loading ? 'Conectando...' : 'Testar Conexão'}
+          <main className="main-content">
+            {/* Action Bar */}
+            <section className="action-bar">
+              <button 
+                onClick={fetchSheetData} 
+                disabled={dataLoading}
+                className="btn btn-primary"
+              >
+                {dataLoading ? '⏳ Carregando...' : '🔄 Recarregar Dados'}
               </button>
-            </section>
-
-            <section className="card">
-              <h2>🔐 Autenticação Google Sheets</h2>
-              {isAuthenticated ? (
-                <p className="success">✅ Autenticado com sucesso!</p>
-              ) : (
-                <>
-                  <p style={{ marginBottom: '1rem' }}>
-                    Clique no botão abaixo para autorizar o acesso à sua planilha:
-                  </p>
-                  <button 
-                    onClick={handleAuthenticate} 
-                    disabled={authLoading}
-                    style={{ backgroundColor: '#4285F4' }}
-                  >
-                    {authLoading ? '⏳ Redirecionando...' : '🔑 Autenticar com Google'}
-                  </button>
-                </>
-              )}
-            </section>
-
-            <section className="card">
-              <h2>📊 Leitura de Planilha</h2>
-              <button onClick={fetchSheetData} disabled={!isAuthenticated}>
-                📊 Ler Dados da Planilha
-              </button>
-              
-              {!isAuthenticated && (
-                <p style={{ marginTop: '1rem', color: '#f59e0b', fontSize: '0.9rem' }}>
-                  ℹ️ Autentique-se primeiro para usar esta função
-                </p>
-              )}
-              
               {sheetData && (
-                <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
-                  <p><strong>Status:</strong> {sheetData.message}</p>
-                  <p><strong>Total de linhas:</strong> {sheetData.rowCount}</p>
-                  <p><strong>Categorias:</strong></p>
-                  <ul>
-                    {Object.entries(sheetData.categories).map(([categoryName, items]) => (
-                      <li key={categoryName}>{categoryName}: {items.length} itens</li>
-                    ))}
-                  </ul>
-                  <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '1rem' }}>
-                    💡 Abra o console do navegador (F12) para ver os dados categorizados em detalhes!
-                  </p>
+                <div className="data-info">
+                  <span className="info-badge">
+                    📊 {sheetData.rowCount} projetos
+                  </span>
                 </div>
               )}
             </section>
 
-            <section className="info">
-              <h3>Arquitetura do Projeto:</h3>
-              <ul>
-                <li>✓ Backend Express rodando na porta 3001</li>
-                <li>✓ Frontend React rodando na porta 3000</li>
-                <li>✓ API REST para comunicação</li>
-                <li>✓ CORS configurado</li>
-                <li>✓ Integração com Google Sheets</li>
-                <li>✓ Autenticação OAuth2</li>
-              </ul>
-            </section>
-          </>
-        )}
-      </main>
-    </div>
+            {/* Timeline */}
+            {dataLoading && !sheetData && (
+              <div className="loading-container">
+                <div className="loading-spinner"></div>
+                <p className="loading-text">Carregando dados...</p>
+              </div>
+            )}
+
+            {sheetData && sheetData.categories && (
+              <Timeline categories={sheetData.categories} />
+            )}
+
+            {!sheetData && !dataLoading && (
+              <section className="empty-state">
+                <div className="empty-icon">📋</div>
+                <h3>Nenhum dado carregado</h3>
+                <p>Clique em "Recarregar Dados" para visualizar a linha do tempo de projetos</p>
+              </section>
+            )}
+          </main>
+
+          {/* Footer */}
+          <footer className="app-footer">
+            <p>HRSJ - Linha do Tempo de Projetos | Equipe de Desenvolvimento HRSJ </p>
+          </footer>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {checkingAuth && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e8ba3 100%)'
+        }}>
+          <div className="loading-container" style={{ background: 'white', borderRadius: '16px', padding: '40px' }}>
+            <div className="loading-spinner"></div>
+            <p className="loading-text">Verificando autenticação...</p>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
