@@ -32,7 +32,7 @@ function Login({ onAuthSuccess }) {
         <div className="login-left">
           <div className="brand-section">
             <div className="brand-icon">📅</div>
-            <h1 className="brand-title">HRS Linha do Tempo</h1>
+            <h1 className="brand-title">HRSJ Linha do Tempo</h1>
             <p className="brand-subtitle">Gestão Estratégica de Projetos</p>
           </div>
 
