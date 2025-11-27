@@ -255,12 +255,15 @@ export async function getSheetData(req, res) {
       return obj;
     });
 
+    // Organizar dados em categorias
+    const categorizedData = organizeDataByCategories(data);
+
     res.json({
       success: true,
       message: 'Dados lidos com sucesso',
       rowCount: data.length,
       headers: headers,
-      data: data
+      categories: categorizedData
     });
 
   } catch (error) {
@@ -270,6 +273,71 @@ export async function getSheetData(req, res) {
       details: error.message
     });
   }
+}
+
+/**
+ * Organiza dados em categorias baseado em palavras-chave
+ * Categorias: 'Aprendizagem e Crescimento', 'Processos', 'Cliente e Mercado', 'Resultado'
+ */
+function organizeDataByCategories(data) {
+  const categories = {
+    'Aprendizagem e Crescimento': [],
+    'Processos': [],
+    'Cliente e Mercado': [],
+    'Resultado': []
+  };
+
+  let currentCategory = 'Aprendizagem e Crescimento';
+
+  for (const row of data) {
+    // Juntar todos os valores da linha para buscar keywords
+    const rowText = Object.values(row).join(' ').toUpperCase();
+
+    // Verificar se a linha contém keywords de categoria
+    if (rowText.includes('PROCESSOS')) {
+      currentCategory = 'Processos';
+      continue; // Pular a linha que contém a keyword
+    } else if (rowText.includes('CLIENTE E MERCADO')) {
+      currentCategory = 'Cliente e Mercado';
+      continue; // Pular a linha que contém a keyword
+    } else if (rowText.includes('RESULTADO')) {
+      currentCategory = 'Resultado';
+      continue; // Pular a linha que contém a keyword
+    } else if (rowText.includes('APRENDIZAGEM E CRESCIMENTO')) {
+      // Para essa linha, remover apenas a célula com 'APRENDIZAGEM E CRESCIMENTO'
+      // e manter o resto
+      // Não usar continue aqui, vamos processar a linha
+    }
+
+    // Limpar a linha removendo células vazias e o texto 'APRENDIZAGEM E CRESCIMENTO'
+    const cleanedRow = {};
+    let hasContent = false;
+    let hasProjeto = false;
+
+    for (const [key, value] of Object.entries(row)) {
+      let cleanedValue = value ? value.toString().trim() : '';
+      
+      // Remover apenas o texto 'APRENDIZAGEM E CRESCIMENTO' da célula
+      if (cleanedValue.toUpperCase() === 'APRENDIZAGEM E CRESCIMENTO') {
+        cleanedValue = '';
+      }
+      
+      if (cleanedValue !== '') {
+        cleanedRow[key] = cleanedValue;
+        hasContent = true;
+        if (key === 'PROJETO') {
+          hasProjeto = true;
+        }
+      }
+    }
+
+    // Adicionar apenas se houver conteúdo E a chave 'PROJETO' existir
+    if (hasContent && hasProjeto) {
+      categories[currentCategory].push(cleanedRow);
+    }
+  }
+
+  return categories;
 }
 
 /**

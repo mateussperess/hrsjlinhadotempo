@@ -72,10 +72,13 @@ function App() {
       const data = await getSheetData('Projetos')
       
       console.log('✅ Dados da planilha recebidos:')
-      console.table(data)
-      console.log('Total de linhas:', data.rowCount)
       console.log('Headers:', data.headers)
-      console.log('Dados completos:', data.data)
+      console.log('Categorias:', data.categories)
+      
+      // Exibir cada categoria no console
+      Object.entries(data.categories).forEach(([categoryName, items]) => {
+        console.log(`\n📁 ${categoryName}:`, items)
+      })
       
       setSheetData(data)
     } catch (err) {
@@ -148,8 +151,14 @@ function App() {
                 <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
                   <p><strong>Status:</strong> {sheetData.message}</p>
                   <p><strong>Total de linhas:</strong> {sheetData.rowCount}</p>
-                  <p style={{ fontSize: '0.9rem', color: '#666' }}>
-                    💡 Abra o console do navegador (F12) para ver os dados completos!
+                  <p><strong>Categorias:</strong></p>
+                  <ul>
+                    {Object.entries(sheetData.categories).map(([categoryName, items]) => (
+                      <li key={categoryName}>{categoryName}: {items.length} itens</li>
+                    ))}
+                  </ul>
+                  <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '1rem' }}>
+                    💡 Abra o console do navegador (F12) para ver os dados categorizados em detalhes!
                   </p>
                 </div>
               )}
