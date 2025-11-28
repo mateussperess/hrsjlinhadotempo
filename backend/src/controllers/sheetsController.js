@@ -84,10 +84,30 @@ export function getAuthUrl(req, res) {
     const credentials = JSON.parse(credentialsData);
     const { client_id, client_secret, redirect_uris } = credentials.installed;
 
+    console.log('📋 Redirect URIs disponíveis:', redirect_uris);
+
+    // Determinar o redirect_uri baseado no host da requisição
+    const host = req.get('host'); // localhost:3001 ou hrsjlinhadotempo-backend.onrender.com
+    let selectedRedirectUri = redirect_uris[0]; // Default: primeiro da lista
+
+    // Se estamos em localhost, usar o redirect_uri de localhost
+    if (host && host.includes('localhost')) {
+      selectedRedirectUri = redirect_uris.find(uri => uri.includes('localhost')) || redirect_uris[0];
+      console.log('✅ Host é localhost, usando:', selectedRedirectUri);
+    } 
+    // Se estamos em Render, usar o redirect_uri de Render
+    else if (host && host.includes('render')) {
+      selectedRedirectUri = redirect_uris.find(uri => uri.includes('render')) || redirect_uris[1];
+      console.log('✅ Host é Render, usando:', selectedRedirectUri);
+    }
+
+    console.log('📍 Host detectado:', host);
+    console.log('📍 Redirect URI selecionado:', selectedRedirectUri);
+
     const auth = new google.auth.OAuth2(
       client_id,
       client_secret,
-      redirect_uris[0]
+      selectedRedirectUri
     );
 
     const authUrl = auth.generateAuthUrl({
@@ -96,7 +116,7 @@ export function getAuthUrl(req, res) {
       prompt: 'consent' // Força a tela de consentimento para garantir refresh_token
     });
 
-    console.log('🔗 URL de autenticação gerada com prompt=consent');
+    console.log('🔗 URL de autenticação gerada');
     res.json({ authUrl });
   } catch (error) {
     console.error('Erro ao gerar URL de autenticação:', error);
@@ -114,6 +134,9 @@ export async function handleAuthCallback(req, res) {
   try {
     const { code } = req.query;
 
+    console.log('🔐 Callback recebido');
+    console.log('  Code:', code ? code.substring(0, 20) + '...' : 'NONE');
+
     if (!code) {
       return res.status(400).json({ error: 'Código de autenticação não fornecido' });
     }
@@ -122,10 +145,30 @@ export async function handleAuthCallback(req, res) {
     const credentials = JSON.parse(credentialsData);
     const { client_id, client_secret, redirect_uris } = credentials.installed;
 
+    console.log('📋 Redirect URIs disponíveis:', redirect_uris);
+
+    // Determinar o redirect_uri baseado no host da requisição (deve ser o EXATO que foi usado para gerar a URL)
+    const host = req.get('host'); // localhost:3001 ou hrsjlinhadotempo-backend.onrender.com
+    let selectedRedirectUri = redirect_uris[0]; // Default: primeiro da lista
+
+    // Se estamos em localhost, usar o redirect_uri de localhost
+    if (host && host.includes('localhost')) {
+      selectedRedirectUri = redirect_uris.find(uri => uri.includes('localhost')) || redirect_uris[0];
+      console.log('✅ Host é localhost, usando:', selectedRedirectUri);
+    } 
+    // Se estamos em Render, usar o redirect_uri de Render
+    else if (host && host.includes('render')) {
+      selectedRedirectUri = redirect_uris.find(uri => uri.includes('render')) || redirect_uris[1];
+      console.log('✅ Host é Render, usando:', selectedRedirectUri);
+    }
+
+    console.log('📍 Host detectado:', host);
+    console.log('📍 Redirect URI selecionado:', selectedRedirectUri);
+
     const auth = new google.auth.OAuth2(
       client_id,
       client_secret,
-      redirect_uris[0]
+      selectedRedirectUri
     );
 
     console.log('🔄 Obtendo token com código de autenticação...');
@@ -139,16 +182,17 @@ export async function handleAuthCallback(req, res) {
     
     auth.setCredentials(tokens);
 
-    // Salvar token para reutilização
+    // Salvar token para reutilização no servidor (backup)
     saveToken(tokens);
 
-    // Redirecionar de volta ao frontend com sucesso
-    // Usar a URL do request para determinar a origem correta
+    // Redirecionar de volta ao frontend com token no query string
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const tokenParam = encodeURIComponent(JSON.stringify(tokens));
     console.log('🔀 Redirecionando para:', frontendUrl);
-    res.redirect(`${frontendUrl}?authenticated=true`);
+    res.redirect(`${frontendUrl}?authenticated=true&token=${tokenParam}`);
   } catch (error) {
     console.error('❌ Erro ao obter token:', error.message);
+    console.error('   Error details:', error);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     res.redirect(`${frontendUrl}?error=${encodeURIComponent(error.message)}`);
   }
@@ -156,18 +200,41 @@ export async function handleAuthCallback(req, res) {
 
 /**
  * Verifica o status da autenticação
+ * Pode receber o token via query string (localStorage do frontend)
  */
 export function checkAuthStatus(req, res) {
   try {
-    if (!fs.existsSync(TOKEN_PATH)) {
+    // Tentar obter token do query string (vindo do localStorage do frontend)
+    const tokenParam = req.query.token;
+    
+    let token = null;
+
+    if (tokenParam) {
+      try {
+        token = JSON.parse(decodeURIComponent(tokenParam));
+        console.log('✅ Token recebido do frontend (localStorage)');
+      } catch (e) {
+        console.log('⚠️ Token inválido do frontend');
+      }
+    }
+
+    // Se não houver token no query string, tentar carregar do arquivo (backup)
+    if (!token && fs.existsSync(TOKEN_PATH)) {
+      try {
+        const tokenData = fs.readFileSync(TOKEN_PATH, 'utf-8');
+        token = JSON.parse(tokenData);
+        console.log('✅ Token carregado do arquivo (backup)');
+      } catch (e) {
+        console.log('⚠️ Erro ao ler token do arquivo');
+      }
+    }
+
+    if (!token) {
       return res.json({
         authenticated: false,
         message: 'Nenhum token encontrado'
       });
     }
-
-    const tokenData = fs.readFileSync(TOKEN_PATH, 'utf-8');
-    const token = JSON.parse(tokenData);
 
     // Verificar se o token expirou
     const isExpired = token.expiry_date && token.expiry_date <= Date.now();
@@ -189,6 +256,7 @@ export function checkAuthStatus(req, res) {
 
 /**
  * Lê dados de uma planilha do Google Sheets
+ * Pode usar token do header Authorization (frontend localStorage)
  * @param {string} sheetName - Nome da aba (ex: 'Projetos')
  * @param {string} range - Intervalo (ex: 'A1:D10' ou deixe vazio para ler tudo)
  */
@@ -204,7 +272,31 @@ export async function getSheetData(req, res) {
 
     const { sheetName = 'Projetos', range } = req.query;
 
-    const auth = await authenticateGoogle();
+    // Tentar obter token do header Authorization (Bearer token do frontend)
+    let auth = null;
+    const authHeader = req.headers.authorization;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const tokenParam = authHeader.substring(7); // Remove "Bearer "
+        const token = JSON.parse(decodeURIComponent(tokenParam));
+        
+        const credentialsData = fs.readFileSync(CREDENTIALS_PATH, 'utf-8');
+        const credentials = JSON.parse(credentialsData);
+        const { client_id, client_secret, redirect_uris } = credentials.installed;
+
+        auth = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+        auth.setCredentials(token);
+        
+        console.log('✅ Usando token do header Authorization (frontend localStorage)');
+      } catch (e) {
+        console.log('⚠️ Erro ao usar token do header, tentando arquivo backup');
+        auth = await authenticateGoogle();
+      }
+    } else {
+      // Se não houver token no header, usar arquivo (backup)
+      auth = await authenticateGoogle();
+    }
     const sheets = google.sheets({ version: 'v4', auth });
 
     // Se não especificar range, ler toda a aba (A:Z cobre todas as colunas comuns)

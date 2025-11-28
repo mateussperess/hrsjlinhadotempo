@@ -14,10 +14,23 @@ function App() {
   const [dataLoading, setDataLoading] = useState(false)
 
   useEffect(() => {
-    verifyAuthentication()
-    
-    // Verificar se há parâmetros de autenticação na URL
+    // Extrair token da URL se presente (vindo do callback do backend)
     const params = new URLSearchParams(window.location.search)
+    const tokenParam = params.get('token')
+    
+    if (tokenParam) {
+      try {
+        const token = JSON.parse(decodeURIComponent(tokenParam))
+        localStorage.setItem('hrs_token', JSON.stringify(token))
+        console.log('✅ Token salvo no localStorage')
+        setIsAuthenticated(true)
+        
+        window.history.replaceState({}, document.title, window.location.pathname)
+      } catch (e) {
+        console.error('❌ Erro ao processar token da URL:', e)
+      }
+    }
+    
     if (params.has('authenticated') && params.get('authenticated') === 'true') {
       setIsAuthenticated(true)
       window.history.replaceState({}, document.title, window.location.pathname)
@@ -26,6 +39,9 @@ function App() {
       alert('Erro na autenticação: ' + params.get('error'))
       window.history.replaceState({}, document.title, window.location.pathname)
     }
+    
+    // Verificar autenticação
+    verifyAuthentication()
   }, [])
 
   const verifyAuthentication = async () => {
@@ -67,6 +83,13 @@ function App() {
     }
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem('hrs_token')
+    setIsAuthenticated(false)
+    setSheetData(null)
+    console.log('✅ Usuário desconectado')
+  }
+
   return (
     <>
       {/* Show Login Page if not authenticated */}
@@ -89,6 +112,13 @@ function App() {
                   <span className="badge-dot"></span>
                   <span className="badge-text">✓ Autenticado</span>
                 </div>
+                <button 
+                  onClick={handleLogout}
+                  className="btn btn-logout"
+                  title="Desconectar"
+                >
+                  Sair
+                </button>
               </div>
             </div>
           </header>

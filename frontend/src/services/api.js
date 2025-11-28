@@ -11,10 +11,30 @@ const api = axios.create({
   }
 })
 
+// Interceptor para adicionar token no header Authorization
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('hrs_token')
+  if (token) {
+    try {
+      const tokenObj = JSON.parse(token)
+      config.headers.Authorization = `Bearer ${encodeURIComponent(JSON.stringify(tokenObj))}`
+    } catch (e) {
+      console.warn('Erro ao fazer parse do token do localStorage')
+    }
+  }
+  return config
+}, (error) => {
+  return Promise.reject(error)
+})
+
 // Verificar se está autenticado no backend
 export const checkAuthStatus = async () => {
   try {
-    const response = await api.get('/auth/status')
+    const token = localStorage.getItem('hrs_token')
+    
+    const params = token ? { token } : {}
+    
+    const response = await api.get('/auth/status', { params })
     return response.data.authenticated === true
   } catch (error) {
     return false

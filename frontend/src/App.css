@@ -266,6 +266,21 @@ body {
   box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
 }
 
+.btn-logout {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 10px 20px;
+  font-size: 0.95rem;
+  backdrop-filter: blur(10px);
+}
+
+.btn-logout:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+
 /* Action Bar */
 .action-bar {
   display: flex;
