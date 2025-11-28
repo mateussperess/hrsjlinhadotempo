@@ -87,7 +87,7 @@ export function getAuthUrl(req, res) {
     console.log('📋 Redirect URIs disponíveis:', redirect_uris);
 
     // Determinar o redirect_uri baseado no host da requisição
-    const host = req.get('host'); // localhost:3001 ou hrsjlinhadotempo-backend.onrender.com
+    const host = req.get('host'); 
     let selectedRedirectUri = redirect_uris[0]; // Default: primeiro da lista
 
     // Se estamos em localhost, usar o redirect_uri de localhost
