@@ -383,53 +383,56 @@ function organizeDataByCategories(data) {
 
   let currentCategory = 'Aprendizagem e Crescimento';
 
-  for (const row of data) {
-    // Juntar todos os valores da linha para buscar keywords
-    const rowText = Object.values(row).join(' ').toUpperCase();
+  console.log(`[DEBUG] Total de linhas a processar: ${data.length}`);
 
-    // Verificar se a linha contém keywords de categoria
-    if (rowText.includes('PROCESSOS')) {
-      currentCategory = 'Processos';
-      continue; // Pular a linha que contém a keyword
-    } else if (rowText.includes('CLIENTE E MERCADO')) {
-      currentCategory = 'Cliente e Mercado';
-      continue; // Pular a linha que contém a keyword
-    } else if (rowText.includes('RESULTADO')) {
-      currentCategory = 'Resultado';
-      continue; // Pular a linha que contém a keyword
-    } else if (rowText.includes('APRENDIZAGEM E CRESCIMENTO')) {
-      // Para essa linha, remover apenas a célula com 'APRENDIZAGEM E CRESCIMENTO'
-      // e manter o resto
-      // Não usar continue aqui, vamos processar a linha
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    
+    const categoryMarker = row[''] ? row[''].toString().trim().toUpperCase() : '';
+    
+    if (categoryMarker) {
+      if (categoryMarker.includes('APRENDIZAGEM E CRESCIMENTO')) {
+        currentCategory = 'Aprendizagem e Crescimento';
+      } else if (categoryMarker.includes('PROCESSOS')) {
+        currentCategory = 'Processos';
+      } else if (categoryMarker.includes('CLIENTE E MERCADO')) {
+        currentCategory = 'Cliente e Mercado';
+      } else if (categoryMarker.includes('RESULTADO')) {
+        currentCategory = 'Resultado';
+      }
     }
 
-    // Limpar a linha removendo células vazias e o texto 'APRENDIZAGEM E CRESCIMENTO'
     const cleanedRow = {};
     let hasContent = false;
-    let hasProjeto = false;
+    let hasProjectField = false;
 
     for (const [key, value] of Object.entries(row)) {
-      let cleanedValue = value ? value.toString().trim() : '';
-      
-      // Remover apenas o texto 'APRENDIZAGEM E CRESCIMENTO' da célula
-      if (cleanedValue.toUpperCase() === 'APRENDIZAGEM E CRESCIMENTO') {
-        cleanedValue = '';
-      }
+      const cleanedValue = value ? value.toString().trim() : '';
       
       if (cleanedValue !== '') {
         cleanedRow[key] = cleanedValue;
         hasContent = true;
         if (key === 'PROJETO') {
-          hasProjeto = true;
+          hasProjectField = true;
         }
       }
     }
 
     // Adicionar apenas se houver conteúdo E a chave 'PROJETO' existir
-    if (hasContent && hasProjeto) {
+    if (hasContent && hasProjectField) {
       categories[currentCategory].push(cleanedRow);
+      console.log(`[DEBUG] Linha ${i}: Adicionado a "${currentCategory}": ${cleanedRow['PROJETO']}`);
+    } else if (hasContent) {
+      console.log(`[DEBUG] Linha ${i}: Ignorado (hasProjectField=${hasProjectField}). Conteúdo:`, Object.keys(cleanedRow));
     }
   }
+
+  console.log('[DEBUG] Resultado final de categorias:', {
+    'Aprendizagem e Crescimento': categories['Aprendizagem e Crescimento'].length,
+    'Processos': categories['Processos'].length,
+    'Cliente e Mercado': categories['Cliente e Mercado'].length,
+    'Resultado': categories['Resultado'].length
+  });
 
   return categories;
 }

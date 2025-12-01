@@ -48,6 +48,8 @@ export const getSheetData = async (sheetName = 'Ações', range = 'A:Z') => {
     if (range) params.range = range
     
     const response = await api.get('/sheets/read', { params })
+
+    console.log(response.data)
     return response.data
   } catch (error) {
     console.error('Erro ao ler planilha:', error.message)
