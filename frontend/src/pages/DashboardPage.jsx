@@ -82,7 +82,7 @@ function DashboardPage({ onLogout }) {
         )}
 
         {sheetData && sheetData.categories && (
-          <Timeline categories={sheetData.categories} />
+          <Timeline categories={sheetData.categories} allProjects={sheetData.allProjects} />
         )}
 
         {!sheetData && !dataLoading && (

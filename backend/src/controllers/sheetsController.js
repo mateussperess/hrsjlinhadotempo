@@ -23,11 +23,9 @@ async function loadOrCreateToken(auth) {
     }
     
     console.log('⚠️ Token não encontrado, será necessário autenticar');
-    // Se não houver token, retornar auth sem token (vai usar refresh token ou exigir autenticação)
     return auth;
   } catch (error) {
     console.error('⚠️ Erro ao carregar token:', error.message);
-    // Se houver erro ao ler o token, continuar sem ele
     return auth;
   }
 }
@@ -37,7 +35,6 @@ async function loadOrCreateToken(auth) {
  */
 function saveToken(token) {
   try {
-    // Garantir que o diretório existe
     const dir = path.dirname(TOKEN_PATH);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -86,17 +83,13 @@ export function getAuthUrl(req, res) {
 
     console.log('📋 Redirect URIs disponíveis:', redirect_uris);
 
-    // Determinar o redirect_uri baseado no host da requisição
     const host = req.get('host'); 
-    let selectedRedirectUri = redirect_uris[0]; // Default: primeiro da lista
+    let selectedRedirectUri = redirect_uris[0]; 
 
-    // Se estamos em localhost, usar o redirect_uri de localhost
     if (host && host.includes('localhost')) {
       selectedRedirectUri = redirect_uris.find(uri => uri.includes('localhost')) || redirect_uris[0];
       console.log('✅ Host é localhost, usando:', selectedRedirectUri);
-    } 
-    // Se estamos em Render, usar o redirect_uri de Render
-    else if (host && host.includes('render')) {
+    } else if (host && host.includes('render')) {
       selectedRedirectUri = redirect_uris.find(uri => uri.includes('render')) || redirect_uris[1];
       console.log('✅ Host é Render, usando:', selectedRedirectUri);
     }
@@ -113,7 +106,7 @@ export function getAuthUrl(req, res) {
     const authUrl = auth.generateAuthUrl({
       access_type: 'offline',
       scope: ['https://www.googleapis.com/auth/spreadsheets'],
-      prompt: 'consent' // Força a tela de consentimento para garantir refresh_token
+      prompt: 'consent' 
     });
 
     console.log('🔗 URL de autenticação gerada');
@@ -147,17 +140,14 @@ export async function handleAuthCallback(req, res) {
 
     console.log('📋 Redirect URIs disponíveis:', redirect_uris);
 
-    // Determinar o redirect_uri baseado no host da requisição (deve ser o EXATO que foi usado para gerar a URL)
-    const host = req.get('host'); // localhost:3001 ou hrsjlinhadotempo-backend.onrender.com
-    let selectedRedirectUri = redirect_uris[0]; // Default: primeiro da lista
+    const host = req.get('host'); 
+    let selectedRedirectUri = redirect_uris[0]; 
 
     // Se estamos em localhost, usar o redirect_uri de localhost
     if (host && host.includes('localhost')) {
       selectedRedirectUri = redirect_uris.find(uri => uri.includes('localhost')) || redirect_uris[0];
       console.log('✅ Host é localhost, usando:', selectedRedirectUri);
-    } 
-    // Se estamos em Render, usar o redirect_uri de Render
-    else if (host && host.includes('render')) {
+    } else if (host && host.includes('render')) {
       selectedRedirectUri = redirect_uris.find(uri => uri.includes('render')) || redirect_uris[1];
       console.log('✅ Host é Render, usando:', selectedRedirectUri);
     }
@@ -204,7 +194,6 @@ export async function handleAuthCallback(req, res) {
  */
 export function checkAuthStatus(req, res) {
   try {
-    // Tentar obter token do query string (vindo do localStorage do frontend)
     const tokenParam = req.query.token;
     
     let token = null;
@@ -218,7 +207,6 @@ export function checkAuthStatus(req, res) {
       }
     }
 
-    // Se não houver token no query string, tentar carregar do arquivo (backup)
     if (!token && fs.existsSync(TOKEN_PATH)) {
       try {
         const tokenData = fs.readFileSync(TOKEN_PATH, 'utf-8');
@@ -236,7 +224,6 @@ export function checkAuthStatus(req, res) {
       });
     }
 
-    // Verificar se o token expirou
     const isExpired = token.expiry_date && token.expiry_date <= Date.now();
 
     res.json({
@@ -278,7 +265,7 @@ export async function getSheetData(req, res) {
     
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
-        const tokenParam = authHeader.substring(7); // Remove "Bearer "
+        const tokenParam = authHeader.substring(7); 
         const token = JSON.parse(decodeURIComponent(tokenParam));
         
         const credentialsData = fs.readFileSync(CREDENTIALS_PATH, 'utf-8');
@@ -294,12 +281,10 @@ export async function getSheetData(req, res) {
         auth = await authenticateGoogle();
       }
     } else {
-      // Se não houver token no header, usar arquivo (backup)
       auth = await authenticateGoogle();
     }
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // Se não especificar range, ler toda a aba (A:Z cobre todas as colunas comuns)
     const readRange = range ? `${sheetName}!${range}` : `${sheetName}!A:Z`;
 
     const response = await sheets.spreadsheets.values.get({
@@ -330,7 +315,6 @@ export async function getSheetData(req, res) {
 
     const headers = rows[headerIndex];
     
-    // Se não encontrar headers válidos, retornar erro
     if (!headers || !headers.some(h => h && h.toString().trim() !== '')) {
       return res.json({
         success: true,
@@ -339,11 +323,9 @@ export async function getSheetData(req, res) {
       });
     }
 
-    // Pegar apenas dados após o header (a partir da linha 4, índice 3)
     const data = rows.slice(headerIndex + 1).map(row => {
       const obj = {};
       headers.forEach((header, index) => {
-        // Pegar o valor da coluna ou vazio
         obj[header] = row && row[index] ? row[index] : '';
       });
       return obj;
@@ -352,12 +334,24 @@ export async function getSheetData(req, res) {
     // Organizar dados em categorias
     const categorizedData = organizeDataByCategories(data);
 
+    const allProjects = [];
+    Object.values(categorizedData).forEach(categoryProjects => {
+      allProjects.push(...categoryProjects);
+    });
+    
+    allProjects.sort((a, b) => {
+      const dateA = parseDate(a['DATA INÍCIO'] || a['DATA FIM'] || '');
+      const dateB = parseDate(b['DATA INÍCIO'] || b['DATA FIM'] || '');
+      return dateA - dateB;
+    });
+
     res.json({
       success: true,
       message: 'Dados lidos com sucesso',
       rowCount: data.length,
       headers: headers,
-      categories: categorizedData
+      categories: categorizedData,
+      allProjects: allProjects  
     });
 
   } catch (error) {
@@ -367,6 +361,30 @@ export async function getSheetData(req, res) {
       details: error.message
     });
   }
+}
+
+/**
+ * Converte data em formato brasileiro (DD/MM/YYYY) ou apenas ano para timestamp
+ * Retorna 0 se não conseguir fazer parse
+ */
+function parseDate(dateStr) {
+  if (!dateStr || dateStr.trim() === '') {
+    return 0; // Data vazia fica no início
+  }
+
+  if (/^\d{4}$/.test(dateStr.trim())) {
+    const year = parseInt(dateStr.trim());
+    return new Date(year, 0, 1).getTime(); 
+  }
+
+  const match = dateStr.trim().match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (match) {
+    const [_, day, month, year] = match;
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return date.getTime();
+  }
+
+  return Infinity; 
 }
 
 /**
@@ -382,8 +400,6 @@ function organizeDataByCategories(data) {
   };
 
   let currentCategory = 'Aprendizagem e Crescimento';
-
-  console.log(`[DEBUG] Total de linhas a processar: ${data.length}`);
 
   for (let i = 0; i < data.length; i++) {
     const row = data[i];
@@ -412,27 +428,19 @@ function organizeDataByCategories(data) {
       if (cleanedValue !== '') {
         cleanedRow[key] = cleanedValue;
         hasContent = true;
-        if (key === 'PROJETO') {
+        if (key === 'PROJETO' || key === 'PROJETO / AÇÕES') {
           hasProjectField = true;
         }
       }
     }
 
-    // Adicionar apenas se houver conteúdo E a chave 'PROJETO' existir
     if (hasContent && hasProjectField) {
+      // Adicionar a categoria ao objeto do projeto
+      cleanedRow.category = currentCategory;
       categories[currentCategory].push(cleanedRow);
-      console.log(`[DEBUG] Linha ${i}: Adicionado a "${currentCategory}": ${cleanedRow['PROJETO']}`);
-    } else if (hasContent) {
-      console.log(`[DEBUG] Linha ${i}: Ignorado (hasProjectField=${hasProjectField}). Conteúdo:`, Object.keys(cleanedRow));
+      const projectName = cleanedRow['PROJETO / AÇÕES'] || cleanedRow['PROJETO'];
     }
   }
-
-  console.log('[DEBUG] Resultado final de categorias:', {
-    'Aprendizagem e Crescimento': categories['Aprendizagem e Crescimento'].length,
-    'Processos': categories['Processos'].length,
-    'Cliente e Mercado': categories['Cliente e Mercado'].length,
-    'Resultado': categories['Resultado'].length
-  });
 
   return categories;
 }

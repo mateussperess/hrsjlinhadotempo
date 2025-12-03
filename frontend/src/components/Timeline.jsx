@@ -1,15 +1,21 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import '../styles/Timeline.css'
 
-function Timeline({ categories }) {
+function Timeline({ categories, allProjects: backendAllProjects }) {
   const [selectedCategory, setSelectedCategory] = useState('Todos')
   const [currentMonth, setCurrentMonth] = useState('Todos')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const timelineRef = useRef(null)
 
-  // Obter todos os projetos
   const allProjects = useMemo(() => {
+    if (backendAllProjects && Array.isArray(backendAllProjects)) {
+      return backendAllProjects.map((item, idx) => ({
+        ...item,
+        category: item.category || 'Outros'
+      }))
+    }
+    
     if (!categories) return []
     
     let projects = []
@@ -17,20 +23,32 @@ function Timeline({ categories }) {
       projects = projects.concat(
         items.map(item => ({
           ...item,
-          category: categoryName
+          category: item.category || categoryName
         }))
       )
     })
     return projects
-  }, [categories])
+  }, [categories, backendAllProjects])
 
-  // Função para parsear data no formato DD/MM/YYYY
   const parseDate = (dateString) => {
     if (!dateString) return null
-    const parts = dateString.split('/')
-    if (parts.length !== 3) return null
-    const [day, month, year] = parts.map(Number)
-    return new Date(year, month - 1, day)
+    
+    const trimmed = dateString.trim()
+    
+    if (/^\d{4}$/.test(trimmed)) {
+      return new Date(parseInt(trimmed), 0, 1) 
+    }
+    
+    // Tentar DD/MM/YYYY
+    const parts = trimmed.split('/')
+    if (parts.length === 3) {
+      const [day, month, year] = parts.map(Number)
+      if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+        return new Date(year, month - 1, day)
+      }
+    }
+    
+    return null
   }
 
   // Nomes dos meses em português
@@ -47,20 +65,22 @@ function Timeline({ categories }) {
     
     if (dateFrom || dateTo) {
       projects = projects.filter(project => {
-        const projectDate = parseDate(project['DATA INÍCIO'])
-        if (!projectDate) return false
+        const projectDate = parseDate(project['DATA INÍCIO'] || project['DATA FIM'])
+        if (!projectDate) return false 
         
         if (dateFrom) {
-          // Input de data vem em formato YYYY-MM-DD
+          // Input vem em formato YYYY-MM-DD
           const [year, month, day] = dateFrom.split('-').map(Number)
           const fromDate = new Date(year, month - 1, day)
           if (projectDate < fromDate) return false
         }
         
         if (dateTo) {
-          // Input de data vem em formato YYYY-MM-DD
+          // Input vem em formato YYYY-MM-DD
           const [year, month, day] = dateTo.split('-').map(Number)
           const toDate = new Date(year, month - 1, day)
+          // Adicionar um dia ao "até" para incluir o dia inteiro
+          toDate.setDate(toDate.getDate() + 1)
           if (projectDate > toDate) return false
         }
         
@@ -68,12 +88,13 @@ function Timeline({ categories }) {
       })
     }
     
+    // Ordenar por data (crescente - mais antigo primeiro)
     projects.sort((a, b) => {
-      const dateA = parseDate(a['DATA INÍCIO'])
-      const dateB = parseDate(b['DATA INÍCIO'])
+      const dateA = parseDate(a['DATA INÍCIO'] || a['DATA FIM'])
+      const dateB = parseDate(b['DATA INÍCIO'] || b['DATA FIM'])
       
       if (!dateA && !dateB) return 0
-      if (!dateA) return 1
+      if (!dateA) return 1 // Projetos sem data vão pro final
       if (!dateB) return -1
       
       return dateA - dateB
@@ -114,7 +135,7 @@ function Timeline({ categories }) {
       if (timelineItems.length === 0) return
 
       const timelineRect = timeline.getBoundingClientRect()
-      const centerX = timelineRect.left + timelineRect.width / 2
+      const centerX = timelineRect.left + timelineRect.width / 5
 
       let closestMonth = null
       let closestDistance = Infinity
@@ -131,7 +152,7 @@ function Timeline({ categories }) {
             closestMonth = '📋 Sem Data'
           } else {
             const [year, month] = monthKey.split('-')
-            const monthIndex = parseInt(month)
+            const monthIndex = parseInt(month) - 1 // Corrigir: mês vem como 01-12, mas monthNames é 0-11
             closestMonth = `${monthNames[monthIndex]} de ${year}`
           }
         }
@@ -243,7 +264,7 @@ function Timeline({ categories }) {
                 <div className="timeline-marker"></div>
                 <div className="timeline-content">
                   <div className="project-header">
-                    <h3>{project.PROJETO || 'Projeto sem título'}</h3>
+                    <h3>{project['PROJETO / AÇÕES'] || project.PROJETO || 'Projeto sem título'}</h3>
                     <span className={`status-badge status-${project['STATUS ']?.toLowerCase().replace(/\s+/g, '-') || 'indefinido'}`}>
                       {project['STATUS '] || 'Indefinido'}
                     </span>
