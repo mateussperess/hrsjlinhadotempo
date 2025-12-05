@@ -264,7 +264,7 @@ function Timeline({ categories, allProjects: backendAllProjects }) {
                 <div className="timeline-marker"></div>
                 <div className="timeline-content">
                   <div className="project-header">
-                    <h3>{project['PROJETO / AÇÕES'] || project.PROJETO || 'Projeto sem título'}</h3>
+                    <h3>{project['PROJETOS / AÇÕES'] || project.PROJETO || 'Projeto sem título'}</h3>
                     <span className={`status-badge status-${project['STATUS ']?.toLowerCase().replace(/\s+/g, '-') || 'indefinido'}`}>
                       {project['STATUS '] || 'Indefinido'}
                     </span>
