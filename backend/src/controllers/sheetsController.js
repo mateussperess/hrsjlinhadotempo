@@ -428,7 +428,7 @@ function organizeDataByCategories(data) {
       if (cleanedValue !== '') {
         cleanedRow[key] = cleanedValue;
         hasContent = true;
-        if (key === 'PROJETO' || key === 'PROJETO / AÇÕES') {
+        if (key === 'PROJETO' || key === 'PROJETOS / AÇÕES') {
           hasProjectField = true;
         }
       }
