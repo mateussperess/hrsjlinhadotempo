@@ -271,21 +271,12 @@ function Timeline({ categories, allProjects: backendAllProjects }) {
                   </div>
                   
                   <div className="project-details">
-                    {project.RESPONSÁVEL && (
-                      <p><strong>👤 Responsável:</strong> {project.RESPONSÁVEL}</p>
-                    )}
-                    {project['DATA INÍCIO'] && (
-                      <p><strong>📅 Início:</strong> {project['DATA INÍCIO']}</p>
-                    )}
-                    {project.INVESTIMENTO && (
-                      <p><strong>💰 Investimento:</strong> {project.INVESTIMENTO}</p>
-                    )}
-                    {project['ORIGEM DO \nINVESTIMENTO'] && (
-                      <p><strong>🏦 Origem:</strong> {project['ORIGEM DO \nINVESTIMENTO']}</p>
-                    )}
-                    {project['CRITÉRIO DE IMPORTÂNCIA'] && (
-                      <p><strong>⭐ Importância:</strong> {project['CRITÉRIO DE IMPORTÂNCIA']}</p>
-                    )}
+                    <p><strong>👤 Responsável:</strong> {project.RESPONSÁVEL || "Não Informado"}</p>
+                    <p><strong>📆 Início:</strong> {project['DATA INÍCIO'] || "Não Informado"}</p>
+                    <p><strong>📆 Fim:</strong> {project['DATA FIM'] || "Não Informado"}</p>
+                    <p><strong>💰 Investimento:</strong> {project.INVESTIMENTO || "Não Informado"}</p>
+                    <p><strong>🏦 Origem:</strong> {project['ORIGEM DO \nINVESTIMENTO'] || "Não Informado"}</p>
+                    <p><strong>📄 Resumo :</strong> {project['RESUMO DO PROJETO'] || "Não Informado"}</p>
                   </div>
 
                   <div className="project-category">
