@@ -277,7 +277,7 @@ function Timeline({ categories, allProjects: backendAllProjects }) {
                     <p><strong>💰 Investimento:</strong> {project.INVESTIMENTO || "Não Informado"}</p>
                     <p><strong>🏦 Origem:</strong> {project['ORIGEM DO \nINVESTIMENTO'] || "Não Informado"}</p>
                     <p><strong>📄 Resumo :</strong> {project['RESUMO DO PROJETO'] || "Não Informado"}</p>
-                    <p> <strong> 🔗 Link no SA </strong> <a href={project['LINK SA']} target="_blank"> {(project['LINK SA']) ? "Clique aqui!" : "Não informado"} </a></p>
+                    <p> <strong> 🔗 Link no SA: </strong> <a href={project['LINK SA']} target="_blank"> {(project['LINK SA']) ? "Clique aqui!" : "Não informado"} </a></p>
                   </div>
 
                   <div className="project-category">
