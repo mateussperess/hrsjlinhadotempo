@@ -41,20 +41,33 @@ export const checkAuthStatus = async () => {
   }
 }
 
-// Função para ler dados da planilha
-export const getSheetData = async (sheetName = 'Ações', range = 'A:Z') => {
-  try {
-    const params = { sheetName }
-    if (range) params.range = range
-    
-    const response = await api.get('/sheets/read', { params })
+// Função para ler dados da planilha com retry automático
+export const getSheetData = async (sheetName = 'Ações', range = 'A:Z', retries = 3, delayMs = 500) => {
+  let lastError;
+  
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const params = { sheetName }
+      if (range) params.range = range
+      
+      const response = await api.get('/sheets/read', { params })
 
-    console.log(response.data)
-    return response.data
-  } catch (error) {
-    console.error('Erro ao ler planilha:', error.message)
-    throw error
+      console.log('✅ Resposta da planilha:', response.data)
+      return response.data
+    } catch (error) {
+      lastError = error;
+      console.warn(`⚠️ Tentativa ${attempt}/${retries} falhou:`, error.message)
+      
+      // Se for a última tentativa, não esperar
+      if (attempt < retries) {
+        console.log(`⏳ Tentando novamente em ${delayMs}ms...`)
+        await new Promise(resolve => setTimeout(resolve, delayMs))
+      }
+    }
   }
+  
+  console.error('❌ Falha ao ler planilha após', retries, 'tentativas')
+  throw lastError;
 }
 
 // Função para adicionar dados na planilha

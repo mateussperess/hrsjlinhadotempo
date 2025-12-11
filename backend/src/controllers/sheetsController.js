@@ -258,15 +258,21 @@ export async function getSheetData(req, res) {
     }
 
     const { sheetName = 'Projetos', range } = req.query;
+    console.log(`📊 [getSheetData] Requisição recebida - Aba: ${sheetName}, Range: ${range || 'A:Z'}`);
 
     // Tentar obter token do header Authorization (Bearer token do frontend)
     let auth = null;
+    let tokenSource = 'desconhecida';
     const authHeader = req.headers.authorization;
     
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
         const tokenParam = authHeader.substring(7); 
         const token = JSON.parse(decodeURIComponent(tokenParam));
+        
+        if (!token.access_token) {
+          throw new Error('Token inválido: sem access_token');
+        }
         
         const credentialsData = fs.readFileSync(CREDENTIALS_PATH, 'utf-8');
         const credentials = JSON.parse(credentialsData);
@@ -275,17 +281,34 @@ export async function getSheetData(req, res) {
         auth = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
         auth.setCredentials(token);
         
-        console.log('✅ Usando token do header Authorization (frontend localStorage)');
+        tokenSource = 'header Authorization (localStorage do frontend)';
+        console.log('✅ Token autenticado via header Authorization');
       } catch (e) {
-        console.log('⚠️ Erro ao usar token do header, tentando arquivo backup');
-        auth = await authenticateGoogle();
+        console.log('⚠️ Erro ao usar token do header:', e.message);
+        tokenSource = 'erro no header - tentando arquivo backup';
       }
-    } else {
-      auth = await authenticateGoogle();
     }
+
+    // Se não conseguiu com header, tentar arquivo backup
+    if (!auth) {
+      try {
+        auth = await authenticateGoogle();
+        tokenSource = 'arquivo token.json (backup)';
+        console.log('✅ Token autenticado via arquivo backup');
+      } catch (e) {
+        console.error('❌ Falha ao obter autenticação:', e.message);
+        return res.status(401).json({
+          error: 'Não autenticado',
+          message: 'Token expirado ou inválido. Faça login novamente.',
+          details: e.message
+        });
+      }
+    }
+
     const sheets = google.sheets({ version: 'v4', auth });
 
     const readRange = range ? `${sheetName}!${range}` : `${sheetName}!A:Z`;
+    console.log(`📍 Lendo intervalo: ${readRange} (Token: ${tokenSource})`);
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
@@ -295,6 +318,7 @@ export async function getSheetData(req, res) {
     const rows = response.data.values;
 
     if (!rows || rows.length === 0) {
+      console.log('⚠️ Nenhuma linha encontrada na planilha');
       return res.json({
         success: true,
         message: 'Nenhum dado encontrado',
@@ -302,10 +326,13 @@ export async function getSheetData(req, res) {
       });
     }
 
+    console.log(`✅ ${rows.length} linhas lidas da planilha`);
+
     // O header está na linha 3 (índice 2)
     const headerIndex = 2;
     
     if (rows.length <= headerIndex) {
+      console.log('⚠️ Header não encontrado (não há linha 3)');
       return res.json({
         success: true,
         message: 'Header não encontrado',
@@ -316,6 +343,7 @@ export async function getSheetData(req, res) {
     const headers = rows[headerIndex];
     
     if (!headers || !headers.some(h => h && h.toString().trim() !== '')) {
+      console.log('⚠️ Header vazio');
       return res.json({
         success: true,
         message: 'Nenhum header encontrado',
@@ -331,6 +359,8 @@ export async function getSheetData(req, res) {
       return obj;
     });
 
+    console.log(`📋 ${data.length} linhas de dados processadas`);
+
     // Organizar dados em categorias
     const categorizedData = organizeDataByCategories(data);
 
@@ -345,6 +375,9 @@ export async function getSheetData(req, res) {
       return dateA - dateB;
     });
 
+    const totalByCategory = Object.entries(categorizedData).map(([cat, items]) => `${cat}: ${items.length}`).join(', ');
+    console.log(`✅ Dados categorizados - ${totalByCategory}`);
+
     res.json({
       success: true,
       message: 'Dados lidos com sucesso',
@@ -355,7 +388,8 @@ export async function getSheetData(req, res) {
     });
 
   } catch (error) {
-    console.error('Erro ao ler planilha:', error);
+    console.error('❌ Erro ao ler planilha:', error.message);
+    console.error('   Stack:', error.stack);
     res.status(500).json({
       error: 'Erro ao ler dados da planilha',
       details: error.message

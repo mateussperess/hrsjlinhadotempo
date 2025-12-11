@@ -6,18 +6,26 @@ import '../styles/Dashboard.css'
 function DashboardPage({ onLogout }) {
   const [sheetData, setSheetData] = useState(null)
   const [dataLoading, setDataLoading] = useState(false)
+  const [autoLoaded, setAutoLoaded] = useState(false)
 
   useEffect(() => {
-    autoLoadData()
-  }, [])
+    // Carregar dados automaticamente apenas uma vez
+    if (!autoLoaded) {
+      autoLoadData()
+      setAutoLoaded(true)
+    }
+  }, [autoLoaded])
 
   const autoLoadData = async () => {
     try {
       setDataLoading(true)
+      console.log('📊 Carregando dados automaticamente...')
       const data = await getSheetData('Projetos')
+      console.log('✅ Dados carregados com sucesso:', data)
       setSheetData(data)
     } catch (err) {
-      console.warn('Não foi possível carregar dados automaticamente')
+      console.warn('⚠️ Não foi possível carregar dados automaticamente:', err.message)
+      // Não fazer alerta automático, deixar o usuário clicar no botão manualmente
     } finally {
       setDataLoading(false)
     }
