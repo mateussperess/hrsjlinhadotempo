@@ -19,13 +19,14 @@ function DashboardPage({ onLogout }) {
   const autoLoadData = async () => {
     try {
       setDataLoading(true)
-      console.log('📊 Carregando dados automaticamente...')
-      const data = await getSheetData('Projetos')
+      console.log('📊 Carregando dados automaticamente (com polling até 30s)...')
+      const data = await getSheetData('Projetos', '', 30000) // 30 segundos de timeout
       console.log('✅ Dados carregados com sucesso:', data)
       setSheetData(data)
     } catch (err) {
-      console.warn('⚠️ Não foi possível carregar dados automaticamente:', err.message)
-      // Não fazer alerta automático, deixar o usuário clicar no botão manualmente
+      console.error('❌ Erro ao carregar dados:', err.message)
+      // Mostrar erro ao usuário apenas se falhar completamente
+      alert(`Erro ao carregar dados: ${err.message}. Clique em "Recarregar Dados" para tentar novamente.`)
     } finally {
       setDataLoading(false)
     }
@@ -34,11 +35,13 @@ function DashboardPage({ onLogout }) {
   const fetchSheetData = async () => {
     try {
       setDataLoading(true)
-      const data = await getSheetData('Projetos')
+      console.log('📊 Recarregando dados manualmente (com polling até 30s)...')
+      const data = await getSheetData('Projetos', '', 30000) // 30 segundos de timeout
+      console.log('✅ Dados recarregados com sucesso:', data)
       setSheetData(data)
     } catch (err) {
-      console.error('❌ Erro ao ler planilha:', err)
-      alert('Erro ao ler planilha. Verifique se está autenticado.')
+      console.error('❌ Erro ao ler planilha:', err.message)
+      alert(`Erro ao recarregar dados: ${err.message}. Tente novamente.`)
     } finally {
       setDataLoading(false)
     }

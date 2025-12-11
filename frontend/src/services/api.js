@@ -41,33 +41,49 @@ export const checkAuthStatus = async () => {
   }
 }
 
-// Função para ler dados da planilha com retry automático
-export const getSheetData = async (sheetName = 'Ações', range = 'A:Z', retries = 3, delayMs = 500) => {
-  let lastError;
+// Função para ler dados da planilha com polling contínuo até sucesso
+export const getSheetData = async (sheetName = 'Ações', range = 'A:Z', maxDurationMs = 30000) => {
+  const startTime = Date.now();
+  let attempt = 0;
+  const initialDelayMs = 100; // Começa com 100ms
+  const maxDelayMs = 2000;    // Máximo de 2s entre tentativas
   
-  for (let attempt = 1; attempt <= retries; attempt++) {
+  while (Date.now() - startTime < maxDurationMs) {
+    attempt++;
+    const elapsedMs = Date.now() - startTime;
+    const delayFromLastAttempt = initialDelayMs * Math.pow(1.5, Math.min(attempt - 1, 5)); // Backoff exponencial
+    const delayMs = Math.min(delayFromLastAttempt, maxDelayMs);
+    
     try {
       const params = { sheetName }
       if (range) params.range = range
       
+      console.log(`📊 [Tentativa ${attempt}] Buscando dados da planilha (${elapsedMs}ms decorridos)...`);
       const response = await api.get('/sheets/read', { params })
 
-      console.log('✅ Resposta da planilha:', response.data)
-      return response.data
-    } catch (error) {
-      lastError = error;
-      console.warn(`⚠️ Tentativa ${attempt}/${retries} falhou:`, error.message)
-      
-      // Se for a última tentativa, não esperar
-      if (attempt < retries) {
-        console.log(`⏳ Tentando novamente em ${delayMs}ms...`)
-        await new Promise(resolve => setTimeout(resolve, delayMs))
+      if (response.data && response.data.success) {
+        console.log(`✅ [Tentativa ${attempt}] SUCESSO! Resposta da planilha:`, response.data);
+        return response.data;
+      } else {
+        console.warn(`⚠️ [Tentativa ${attempt}] Resposta sem sucesso:`, response.data);
       }
+    } catch (error) {
+      console.warn(`⚠️ [Tentativa ${attempt}] Erro ao ler planilha (${error.code || error.message})`);
     }
+    
+    // Calcular próximo delay
+    const nextDelay = Math.min(delayMs, maxDurationMs - (Date.now() - startTime));
+    
+    if (nextDelay <= 0) {
+      console.error(`❌ Tempo máximo de ${maxDurationMs}ms excedido. Parando polling.`);
+      throw new Error(`Falha ao carregar dados após ${maxDurationMs}ms`);
+    }
+    
+    console.log(`⏳ Aguardando ${Math.round(nextDelay)}ms antes de tentar novamente...`);
+    await new Promise(resolve => setTimeout(resolve, nextDelay));
   }
   
-  console.error('❌ Falha ao ler planilha após', retries, 'tentativas')
-  throw lastError;
+  throw new Error(`Falha ao carregar dados. Tempo máximo de ${maxDurationMs}ms excedido.`);
 }
 
 // Função para adicionar dados na planilha
