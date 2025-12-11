@@ -395,7 +395,7 @@ function organizeDataByCategories(data) {
   const categories = {
     'Aprendizagem e Crescimento': [],
     'Processos': [],
-    'Cliente e Mercado': [],
+    'Clientes e Mercado': [],
     'Resultado': []
   };
 
@@ -411,8 +411,8 @@ function organizeDataByCategories(data) {
         currentCategory = 'Aprendizagem e Crescimento';
       } else if (categoryMarker.includes('PROCESSOS')) {
         currentCategory = 'Processos';
-      } else if (categoryMarker.includes('CLIENTE E MERCADO')) {
-        currentCategory = 'Cliente e Mercado';
+      } else if (categoryMarker.includes('CLIENTES E MERCADO')) {
+        currentCategory = 'Clientes e Mercado';
       } else if (categoryMarker.includes('RESULTADO')) {
         currentCategory = 'Resultado';
       }

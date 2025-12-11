@@ -115,7 +115,7 @@ function Timeline({ categories, allProjects: backendAllProjects }) {
         if (!grouped['sem-data']) grouped['sem-data'] = []
         grouped['sem-data'].push(project)
       } else {
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth()).padStart(2, '0')}`
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`        
         if (!grouped[monthKey]) grouped[monthKey] = []
         grouped[monthKey].push(project)
       }
@@ -179,9 +179,9 @@ function Timeline({ categories, allProjects: backendAllProjects }) {
     <div className="timeline-container">
       <div className="timeline-header">
         <div className="header-top">
-          <h2>📅 Linha do Tempo de Projetos</h2>
+          <h2>📅 Linha do Tempo de Ações e Projetos</h2>
           <span className="project-count">
-            {filteredProjects.length} projeto{filteredProjects.length !== 1 ? 's' : ''}
+            {filteredProjects.length} aç{filteredProjects.length !== 1 ? "ões" : "ão"} e projeto{filteredProjects.length !== 1 ? 's' : ''}
           </span>
         </div>
         
@@ -256,7 +256,7 @@ function Timeline({ categories, allProjects: backendAllProjects }) {
           filteredProjects.map((project, index) => {
             const date = parseDate(project['DATA INÍCIO'])
             const monthKey = date 
-              ? `${date.getFullYear()}-${String(date.getMonth()).padStart(2, '0')}`
+              ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
               : 'sem-data'
             
             return (
@@ -274,8 +274,7 @@ function Timeline({ categories, allProjects: backendAllProjects }) {
                     <p><strong>👤 Responsável:</strong> {project.RESPONSÁVEL || "Não Informado"}</p>
                     <p><strong>📆 Início:</strong> {project['DATA INÍCIO'] || "Não Informado"}</p>
                     <p><strong>📆 Fim:</strong> {project['DATA FIM'] || "Não Informado"}</p>
-                    <p><strong>💰 Investimento:</strong> {project.INVESTIMENTO || "Não Informado"}</p>
-                    <p><strong>🏦 Origem:</strong> {project['ORIGEM DO \nINVESTIMENTO'] || "Não Informado"}</p>
+                    <p><strong>✅ Objetivo Estratégico:</strong> {project['OBJETIVO ESTRATÉGICO'] || "Não Informado"}</p>
                     <p><strong>📄 Resumo :</strong> {project['RESUMO DO PROJETO'] || "Não Informado"}</p>
                     <p> <strong> 🔗 Link no SA: </strong> <a href={project['LINK SA']} target="_blank"> {(project['LINK SA']) ? "Clique aqui!" : "Não informado"} </a></p>
                   </div>
