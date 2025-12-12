@@ -73,6 +73,18 @@ function DashboardPage({ onLogout }) {
       </header>
 
       <main className="main-content">
+        {/* Missão e Visão */}
+        <section className="mission-vision-section">
+          <div className="mission-card">
+            <h3>🎯 Missão</h3>
+            <p>Proporcionar assistência à saúde de forma inovadora, qualificada e humanizada.</p>
+          </div>
+          <div className="vision-card">
+            <h3>🌟 Visão</h3>
+            <p>Ser um hospital regional de referência estadual até 2025.</p>
+          </div>
+        </section>
+
         {/* Action Bar */}
         <section className="action-bar">
           <button 

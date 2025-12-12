@@ -6,7 +6,37 @@ function Timeline({ categories, allProjects: backendAllProjects }) {
   const [currentMonth, setCurrentMonth] = useState('Todos')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [presentationMode, setPresentationMode] = useState(false)
+  const [currentProjectIndex, setCurrentProjectIndex] = useState(0)
   const timelineRef = useRef(null)
+  const presentationTimelineRef = useRef(null)
+
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ]
+
+  const getProjectMonthYear = (project) => {
+    const date = parseDate(project['DATA INÍCIO'] || project['DATA FIM'])
+    if (!date) return 'Data não informada'
+    return `${monthNames[date.getMonth()]} de ${date.getFullYear()}`
+  }
+
+  // Auto-scroll do timeline em modo apresentação
+  useEffect(() => {
+    if (!presentationMode || !presentationTimelineRef.current) return
+
+    const timeline = presentationTimelineRef.current
+    const selectedItem = timeline.querySelector('.presentation-timeline-item.selected')
+    
+    if (selectedItem) {
+      selectedItem.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center'
+      })
+    }
+  }, [currentProjectIndex, presentationMode])
 
   const allProjects = useMemo(() => {
     if (backendAllProjects && Array.isArray(backendAllProjects)) {
@@ -50,12 +80,6 @@ function Timeline({ categories, allProjects: backendAllProjects }) {
     
     return null
   }
-
-  // Nomes dos meses em português
-  const monthNames = [
-    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-  ]
 
   // Filtrar e ordenar projetos
   const filteredProjects = useMemo(() => {
@@ -102,6 +126,29 @@ function Timeline({ categories, allProjects: backendAllProjects }) {
     
     return projects
   }, [allProjects, selectedCategory, dateFrom, dateTo])
+
+  // Efeito para navegação por teclado em modo apresentação (APÓS filteredProjects)
+  useEffect(() => {
+    if (!presentationMode) return
+
+    const handleKeyPress = (e) => {
+      if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        setCurrentProjectIndex(prev => 
+          prev < filteredProjects.length - 1 ? prev + 1 : prev
+        )
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        setCurrentProjectIndex(prev => prev > 0 ? prev - 1 : prev)
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        setPresentationMode(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [presentationMode, filteredProjects.length])
 
   const projectsByMonth = useMemo(() => {
     if (selectedCategory !== 'Todos') {
@@ -247,49 +294,176 @@ function Timeline({ categories, allProjects: backendAllProjects }) {
         </div>
       )}
 
-      <div className="timeline" ref={timelineRef}>
-        {filteredProjects.length === 0 ? (
-          <div className="empty-state">
-            <p>Nenhum projeto encontrado nesta categoria.</p>
-          </div>
-        ) : (
-          filteredProjects.map((project, index) => {
-            const date = parseDate(project['DATA INÍCIO'])
-            const monthKey = date 
-              ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-              : 'sem-data'
-            
-            return (
-              <div key={index} className="timeline-item" data-month={monthKey}>
-                <div className="timeline-marker"></div>
-                <div className="timeline-content">
-                  <div className="project-header">
-                    <h3>{project['PROJETOS / AÇÕES'] || project.PROJETO || 'Projeto sem título'}</h3>
-                    <span className={`status-badge status-${project['STATUS ']?.toLowerCase().replace(/\s+/g, '-') || 'indefinido'}`}>
-                      {project['STATUS '] || 'Indefinido'}
-                    </span>
-                  </div>
-                  
-                  <div className="project-details">
-                    <p><strong>👤 Responsável:</strong> {project.RESPONSÁVEL || "Não Informado"}</p>
-                    <p><strong>📆 Início:</strong> {project['DATA INÍCIO'] || "Não Informado"}</p>
-                    <p><strong>📆 Fim:</strong> {project['DATA FIM'] || "Não Informado"}</p>
-                    <p><strong>✅ Objetivo Estratégico:</strong> {project['OBJETIVO ESTRATÉGICO'] || "Não Informado"}</p>
-                    <p><strong>📄 Resumo :</strong> {project['RESUMO DO PROJETO'] || "Não Informado"}</p>
-                    <p> <strong> 🔗 Link no SA: </strong> <a href={project['LINK SA']} target="_blank"> {(project['LINK SA']) ? "Clique aqui!" : "Não informado"} </a></p>
-                  </div>
+      {presentationMode ? (
+        // Modo Apresentação - Timeline em Fullscreen com Navegação
+        <div className="presentation-fullscreen">
+          <button 
+            className="btn-exit-presentation"
+            onClick={() => setPresentationMode(false)}
+            title="Sair (ESC)"
+          >
+            ✕ Sair da Apresentação
+          </button>
 
-                  <div className="project-category">
-                    <span className={`category-badge category-${project.category.toLowerCase().replace(/\s+/g, '-')}`}>
-                      {project.category}
-                    </span>
-                  </div>
+          {/* Header com Mês/Ano */}
+          {filteredProjects.length > 0 && (
+            <div className="presentation-header">
+              <h2>{getProjectMonthYear(filteredProjects[currentProjectIndex])}</h2>
+            </div>
+          )}
+
+          <div className="presentation-timeline-wrapper">
+            <div className="timeline presentation-timeline" ref={presentationTimelineRef}>
+              {filteredProjects.length === 0 ? (
+                <div className="empty-state">
+                  <p>Nenhum projeto encontrado nesta categoria.</p>
+                </div>
+              ) : (
+                filteredProjects.map((project, index) => {
+                  const date = parseDate(project['DATA INÍCIO'])
+                  const monthKey = date 
+                    ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+                    : 'sem-data'
+                  const isSelected = index === currentProjectIndex
+                  
+                  return (
+                    <div 
+                      key={index} 
+                      className={`timeline-item presentation-timeline-item ${isSelected ? 'selected' : ''}`}
+                      data-month={monthKey}
+                      onClick={() => setCurrentProjectIndex(index)}
+                    >
+                      <div className="timeline-marker"></div>
+                      <div className="timeline-content">
+                        <div className="project-header">
+                          <h3>{project['PROJETOS / AÇÕES'] || project.PROJETO || 'Projeto sem título'}</h3>
+                          <span className={`status-badge status-${project['STATUS ']?.toLowerCase().replace(/\s+/g, '-') || 'indefinido'}`}>
+                            {project['STATUS '] || 'Indefinido'}
+                          </span>
+                        </div>
+                        
+                        <div className="project-details">
+                          <p><strong>📆 Início:</strong> {project['DATA INÍCIO'] || "Não Informado"}</p>
+                          <p><strong>📆 Fim:</strong> {project['DATA FIM'] || "Não Informado"}</p>
+                          <p><strong>✅ Objetivo Estratégico:</strong> {project['OBJETIVO ESTRATÉGICO'] || "Não Informado"}</p>
+                          <p><strong>📄 Resumo:</strong> {project['RESUMO DO PROJETO'] || "Não Informado"}</p>
+                          <p><strong>🔗 Link no SA:</strong> <a href={project['LINK SA']} target="_blank" rel="noopener noreferrer">{project['LINK SA'] ? "Clique aqui!" : "Não informado"}</a></p>
+                        </div>
+
+                        <div className="project-category">
+                          <span className={`category-badge category-${project.category.toLowerCase().replace(/\s+/g, '-')}`}>
+                            {project.category}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Info Card com Missão e Visão */}
+          {filteredProjects.length > 0 && (
+            <div className="presentation-info-card">
+              <div className="mission-vision-container">
+                <div className="mission-box">
+                  <h3>🎯 Missão</h3>
+                  <p>Proporcionar assistência à saúde de forma inovadora, qualificada e humanizada.</p>
+                </div>
+                <div className="vision-box">
+                  <h3>🌟 Visão</h3>
+                  <p>Ser um hospital regional de referência estadual até 2025.</p>
                 </div>
               </div>
-            )
-          })
-        )}
-      </div>
+
+              <div className="info-card-footer">
+                <button 
+                  className="nav-arrow-btn prev"
+                  onClick={() => setCurrentProjectIndex(prev => prev > 0 ? prev - 1 : prev)}
+                  disabled={currentProjectIndex === 0}
+                  title="Anterior (← Seta Esquerda)"
+                >
+                  ← Anterior
+                </button>
+
+                <span className="progress-counter">
+                  {currentProjectIndex + 1} / {filteredProjects.length}
+                </span>
+
+                <button 
+                  className="nav-arrow-btn next"
+                  onClick={() => setCurrentProjectIndex(prev => prev < filteredProjects.length - 1 ? prev + 1 : prev)}
+                  disabled={currentProjectIndex === filteredProjects.length - 1}
+                  title="Próximo (→ Seta Direita)"
+                >
+                  Próximo →
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        // Modo Normal
+        <>
+          <div className="timeline" ref={timelineRef}>
+            {filteredProjects.length === 0 ? (
+              <div className="empty-state">
+                <p>Nenhum projeto encontrado nesta categoria.</p>
+              </div>
+            ) : (
+              <>
+                <button 
+                  className="btn-presentation"
+                  onClick={() => {
+                    setPresentationMode(true)
+                    setCurrentProjectIndex(0)
+                  }}
+                  title="Ativar Modo Apresentação (Tela Cheia)"
+                >
+                  🎬 Modo Apresentação
+                </button>
+
+                {filteredProjects.map((project, index) => {
+                  const date = parseDate(project['DATA INÍCIO'])
+                  const monthKey = date 
+                    ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+                    : 'sem-data'
+                  
+                  return (
+                    <div key={index} className="timeline-item" data-month={monthKey}>
+                      <div className="timeline-marker"></div>
+                      <div className="timeline-content">
+                        <div className="project-header">
+                          <h3>{project['PROJETOS / AÇÕES'] || project.PROJETO || 'Projeto sem título'}</h3>
+                          <span className={`status-badge status-${project['STATUS ']?.toLowerCase().replace(/\s+/g, '-') || 'indefinido'}`}>
+                            {project['STATUS '] || 'Indefinido'}
+                          </span>
+                        </div>
+                        
+                        <div className="project-details">
+                          <p><strong>👤 Responsável:</strong> {project.RESPONSÁVEL || "Não Informado"}</p>
+                          <p><strong>📆 Início:</strong> {project['DATA INÍCIO'] || "Não Informado"}</p>
+                          <p><strong>📆 Fim:</strong> {project['DATA FIM'] || "Não Informado"}</p>
+                          <p><strong>✅ Objetivo Estratégico:</strong> {project['OBJETIVO ESTRATÉGICO'] || "Não Informado"}</p>
+                          <p><strong>📄 Resumo :</strong> {project['RESUMO DO PROJETO'] || "Não Informado"}</p>
+                          <p> <strong> 🔗 Link no SA: </strong> <a href={project['LINK SA']} target="_blank"> {(project['LINK SA']) ? "Clique aqui!" : "Não informado"} </a></p>
+                        </div>
+
+                        <div className="project-category">
+                          <span className={`category-badge category-${project.category.toLowerCase().replace(/\s+/g, '-')}`}>
+                            {project.category}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }
